@@ -110,20 +110,46 @@ function App() {
   const socketRef = useRef<ReturnType<typeof ws.connect> | null>(null);
 
   async function loadData() {
-    const me = await api.get('/api/me');
-    setProfile(me.data.profile);
-    setProfileName(me.data.profile.name || '');
-    const data = await api.get('/api/dashboard');
-    setClasses(data.data.classes || []);
-    setAssignments(data.data.assignments || []);
-    setSessions(data.data.sessions || []);
-    if (me.data.profile.role === 'admin') {
-      const people = await api.get('/api/admin/users');
-      setUsers(people.data.users || []);
-    }
-    if (me.data.profile.role !== 'pending') {
-      const materialData = await api.get('/api/materials');
-      setMaterials(materialData.data.materials || []);
+    try {
+      const me = await api.get('/api/me');
+      const nextProfile = me.data.profile as Profile;
+      setProfile(nextProfile);
+      setProfileName(nextProfile.name || '');
+      localStorage.setItem('classbridge:profile', JSON.stringify(nextProfile));
+      const data = await api.get('/api/dashboard');
+      const nextClasses = data.data.classes || [];
+      const nextAssignments = data.data.assignments || [];
+      const nextSessions = data.data.sessions || [];
+      setClasses(nextClasses);
+      setAssignments(nextAssignments);
+      setSessions(nextSessions);
+      localStorage.setItem('classbridge:dashboard', JSON.stringify({
+        classes: nextClasses, assignments: nextAssignments, sessions: nextSessions
+      }));
+      if (nextProfile.role === 'admin') {
+        const people = await api.get('/api/admin/users');
+        setUsers(people.data.users || []);
+        localStorage.setItem('classbridge:users', JSON.stringify(people.data.users || []));
+      }
+      if (nextProfile.role !== 'pending') {
+        const materialData = await api.get('/api/materials');
+        setMaterials(materialData.data.materials || []);
+        localStorage.setItem('classbridge:materials', JSON.stringify(materialData.data.materials || []));
+      }
+    } catch (e) {
+      const savedProfile = localStorage.getItem('classbridge:profile');
+      const savedDashboard = localStorage.getItem('classbridge:dashboard');
+      if (!savedProfile || !savedDashboard) throw e;
+      const cachedProfile = JSON.parse(savedProfile) as Profile;
+      const cachedDashboard = JSON.parse(savedDashboard);
+      setProfile(cachedProfile);
+      setProfileName(cachedProfile.name || '');
+      setClasses(cachedDashboard.classes || []);
+      setAssignments(cachedDashboard.assignments || []);
+      setSessions(cachedDashboard.sessions || []);
+      setUsers(JSON.parse(localStorage.getItem('classbridge:users') || '[]'));
+      setMaterials(JSON.parse(localStorage.getItem('classbridge:materials') || '[]'));
+      setNotice('Offline mode: showing the latest information saved on this device. New changes will need an internet connection.');
     }
   }
 
@@ -134,13 +160,44 @@ function App() {
         const current = await auth.getUser();
         if (active && current) {
           setUser(current);
+          localStorage.setItem('classbridge:user', JSON.stringify(current));
           await loadData();
+        } else if (active) {
+          const savedUser = localStorage.getItem('classbridge:user');
+          const savedProfile = localStorage.getItem('classbridge:profile');
+          if (!navigator.onLine && savedUser && savedProfile) {
+            setUser(JSON.parse(savedUser) as User);
+            setProfile(JSON.parse(savedProfile) as Profile);
+            setProfileName((JSON.parse(savedProfile) as Profile).name || '');
+            const cached = JSON.parse(localStorage.getItem('classbridge:dashboard') || '{}');
+            setClasses(cached.classes || []);
+            setAssignments(cached.assignments || []);
+            setSessions(cached.sessions || []);
+            setMaterials(JSON.parse(localStorage.getItem('classbridge:materials') || '[]'));
+            setUsers(JSON.parse(localStorage.getItem('classbridge:users') || '[]'));
+            setNotice('You are offline. Showing saved classroom information.');
+          }
         }
       } catch (e) {
-        if (active)
-          setError(
-            'We could not restore your session. Please try signing in again.'
-          );
+        if (active) {
+          const savedUser = localStorage.getItem('classbridge:user');
+          const savedProfile = localStorage.getItem('classbridge:profile');
+          if (!navigator.onLine && savedUser && savedProfile) {
+            setUser(JSON.parse(savedUser) as User);
+            const cachedProfile = JSON.parse(savedProfile) as Profile;
+            setProfile(cachedProfile);
+            setProfileName(cachedProfile.name || '');
+            const cached = JSON.parse(localStorage.getItem('classbridge:dashboard') || '{}');
+            setClasses(cached.classes || []);
+            setAssignments(cached.assignments || []);
+            setSessions(cached.sessions || []);
+            setMaterials(JSON.parse(localStorage.getItem('classbridge:materials') || '[]'));
+            setUsers(JSON.parse(localStorage.getItem('classbridge:users') || '[]'));
+            setNotice('You are offline. Showing saved classroom information.');
+          } else {
+            setError('We could not restore your session. Please connect to the internet and try again.');
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -509,6 +566,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      {!navigator.onLine && <div className="offline-ribbon" role="status">Offline mode · Saved classroom information only</div>}
       <aside className={'sidebar ' + (mobileNav ? 'open' : '')}>
         <div className="brand side-brand">
           <span className="brand-mark">
