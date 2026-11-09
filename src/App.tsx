@@ -234,7 +234,10 @@ function App() {
   async function signIn() {
     setError('');
     try {
-      await auth.signInWithRedirect();
+      // Keep the user's secure session restorable on later app launches.
+      await auth.signInWithRedirect({
+        scope: 'openid email profile offline_access',
+      });
     } catch {
       setError(
         'Sign-in could not start. Check your browser storage and try again.'
