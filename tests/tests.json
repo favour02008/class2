@@ -71,20 +71,41 @@
     "expected": "The file is listed and can be opened by enrolled students."
   },
   {
+    "name": "Student shares ClassBridge links",
+    "viewport": "mobile",
+    "covers": [
+      "student-only Share ClassBridge section",
+      "share website link",
+      "share app link",
+      "copy ClassBridge link"
+    ],
+    "description": "Checks that students can share or copy the ClassBridge website and app-entry links.",
+    "steps": [
+      "Sign in as an approved student",
+      "Open Share ClassBridge",
+      "Use Share website link and Copy app link"
+    ],
+    "expected": "The device share sheet opens where supported, or the correct ClassBridge link is copied; the section explains that a separate APK is not yet available."
+  },
+  {
     "name": "Existing classroom workflows remain available",
     "viewport": "desktop",
     "covers": [
       "classroom creation",
       "assignment publishing",
       "attendance sessions",
-      "attendance marking"
+      "attendance marking",
+      "teacher creates Google Meet live class session",
+      "student joins a published live class",
+      "student marks attendance",
+      "student attendance totals and missed class summary"
     ],
-    "description": "Protects existing learning workflows.",
+    "description": "Protects existing classroom, assignment, live lesson and attendance workflows.",
     "steps": [
       "Create a classroom",
       "Publish an assignment",
       "Start an attendance session"
     ],
-    "expected": "Existing classroom, assignment and attendance features continue to work."
+    "expected": "Existing classroom, assignment, live class and attendance features continue to work."
   }
 ]

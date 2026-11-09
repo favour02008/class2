@@ -408,6 +408,67 @@ export const handler = router({
       }
     },
   ],
+  'GET /api/live-classes': [
+    ...userOnly,
+    async ctx => {
+      try {
+        const profile = await requireRole(ctx.user!, ['student', 'teacher', 'admin']);
+        const page = await db.list<any>('live_class_sessions', { limit: 100 });
+        const classPage = await db.list<any>('classrooms', { limit: 100 });
+        let visibleClasses = classPage.items;
+        if (profile.role === 'teacher') visibleClasses = visibleClasses.filter(c => c.teacherId === ctx.user!.userId);
+        if (profile.role === 'student') {
+          const enrolments = await db.list<any>('enrolments', { limit: 100 });
+          const ids = enrolments.items.filter(x => x.studentId === ctx.user!.userId).map(x => x.classId);
+          visibleClasses = visibleClasses.filter(c => ids.includes(c.id));
+        }
+        const ids = visibleClasses.map(c => c.id);
+        const sessions = page.items.filter(s => ids.includes(s.classId)).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        return json({ sessions });
+      } catch (e) { return error(e instanceof Error ? e.message : 'Could not load live classes.', 403); }
+    },
+  ],
+  'POST /api/live-classes': [
+    ...userOnly,
+    async ctx => {
+      try {
+        const profile = await requireRole(ctx.user!, ['teacher', 'admin']);
+        const body = ctx.body as { classId?: string; title?: string; meetingUrl?: string; scheduledAt?: string };
+        if (!body.classId || !body.title?.trim() || !body.meetingUrl?.trim()) return error('Choose a class, enter a title and paste a Google Meet link.', 400);
+        let parsed: URL;
+        try { parsed = new URL(body.meetingUrl); } catch { return error('Enter a valid Google Meet URL.', 400); }
+        if (parsed.protocol !== 'https:' || !['meet.google.com', 'www.google.com'].includes(parsed.hostname)) return error('Use a Google Meet link beginning with https://meet.google.com/.', 400);
+        const [classroom] = await db.get<any>('classrooms', [body.classId], { consistent: true });
+        if (!classroom || (profile.role !== 'admin' && classroom.teacherId !== ctx.user!.userId)) return error('You cannot schedule a session for this classroom.', 403);
+        const record = { classId: body.classId, title: body.title.trim().slice(0, 100), meetingUrl: body.meetingUrl.trim(), scheduledAt: body.scheduledAt || '', teacherId: ctx.user!.userId, teacherName: profile.name || ctx.user!.email || 'Teacher', createdAt: new Date().toISOString() };
+        const [id] = await db.add('live_class_sessions', [record]);
+        if (!id) return error('Could not create the live class session.', 500);
+        return json({ session: { ...record, id } }, 201);
+      } catch (e) { return error(e instanceof Error ? e.message : 'Could not create live class.', 403); }
+    },
+  ],
+  'GET /api/attendance/summary': [
+    ...userOnly,
+    async ctx => {
+      try {
+        await requireRole(ctx.user!, ['student']);
+        const enrolments = await db.list<any>('enrolments', { limit: 100 });
+        const classIds = enrolments.items.filter(x => x.studentId === ctx.user!.userId).map(x => x.classId);
+        const classPage = await db.list<any>('classrooms', { limit: 100 });
+        const classes = classPage.items.filter(c => classIds.includes(c.id));
+        const sessionsPage = await db.list<any>('attendance_sessions', { limit: 100 });
+        const sessions = sessionsPage.items.filter(s => classIds.includes(s.classId));
+        const recordsPage = await db.list<any>('attendance_records', { limit: 100 });
+        const ownRecords = recordsPage.items.filter(r => r.studentId === ctx.user!.userId);
+        const summary = classes.map(classroom => {
+          const classSessions = sessions.filter(s => s.classId === classroom.id);
+          const attendedIds = new Set(ownRecords.filter(r => classSessions.some(s => s.id === r.sessionId)).map(r => r.sessionId));
+          return { classId: classroom.id, className: classroom.name, total: classSessions.length, attended: attendedIds.size, missed: Math.max(0, classSessions.length - attendedIds.size), records: classSessions.map(s => ({ id: s.id, createdAt: s.createdAt, attended: attendedIds.has(s.id) })) };
+        });
+        return json({ summary });
+      } catch (e) { return error(e instanceof Error ? e.message : 'Could not load attendance summary.', 403); }
+    },
+  ],
   'POST /api/attendance/mark': [
     ...userOnly,
     async ctx => {

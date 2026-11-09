@@ -17,6 +17,11 @@ import {
   CheckCircle2,
   Clock3,
   Search,
+  Video,
+  ExternalLink,
+  Link2,
+  Share2,
+  Copy,
 } from 'lucide-react';
 
 type User = { userId: string; email?: string; name?: string; picture?: string };
@@ -44,6 +49,8 @@ type Assignment = {
   teacherId: string;
 };
 type Session = { id: string; classId: string; code: string; createdAt: string };
+type LiveClass = { id: string; classId: string; title: string; meetingUrl: string; scheduledAt: string; teacherName: string; createdAt: string };
+type AttendanceSummary = { classId: string; className: string; total: number; attended: number; missed: number; records: { id: string; createdAt: string; attended: boolean }[] };
 type Attendance = {
   id: string;
   classId: string;
@@ -113,6 +120,12 @@ function App() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [liveSessions, setLiveSessions] = useState<LiveClass[]>([]);
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary[]>([]);
+  const [liveTitle, setLiveTitle] = useState('');
+  const [liveClass, setLiveClass] = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
+  const [liveScheduledAt, setLiveScheduledAt] = useState('');
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -144,12 +157,20 @@ function App() {
       const nextClasses = data.data.classes || [];
       const nextAssignments = data.data.assignments || [];
       const nextSessions = data.data.sessions || [];
+      const liveData = await api.get('/api/live-classes');
+      setLiveSessions(liveData.data.sessions || []);
+      if (nextProfile.role === 'student') {
+        const summaryData = await api.get('/api/attendance/summary');
+        setAttendanceSummary(summaryData.data.summary || []);
+      }
       setClasses(nextClasses);
       setAssignments(nextAssignments);
       setSessions(nextSessions);
       localStorage.setItem('classbridge:dashboard', JSON.stringify({
         classes: nextClasses, assignments: nextAssignments, sessions: nextSessions
       }));
+      localStorage.setItem('classbridge:live-classes', JSON.stringify(liveData.data.sessions || []));
+      if (nextProfile.role === 'student') localStorage.setItem('classbridge:attendance-summary', JSON.stringify(attendanceSummary));
       if (nextProfile.role === 'admin') {
         const people = await api.get('/api/admin/users');
         setUsers(people.data.users || []);
@@ -171,6 +192,8 @@ function App() {
       setClasses(cachedDashboard.classes || []);
       setAssignments(cachedDashboard.assignments || []);
       setSessions(cachedDashboard.sessions || []);
+      setLiveSessions(JSON.parse(localStorage.getItem('classbridge:live-classes') || '[]'));
+      setAttendanceSummary(JSON.parse(localStorage.getItem('classbridge:attendance-summary') || '[]'));
       setUsers(JSON.parse(localStorage.getItem('classbridge:users') || '[]'));
       setMaterials(JSON.parse(localStorage.getItem('classbridge:materials') || '[]'));
       setNotice('Offline mode: showing the latest information saved on this device. New changes will need an internet connection.');
@@ -394,6 +417,16 @@ function App() {
       const result = await api.post('/api/attendance/start', { classId });
       setNotice('Attendance code created: ' + result.data.code);
       await loadData();
+    });
+  }
+
+  async function createLiveClass(e: React.FormEvent) {
+    e.preventDefault();
+    await action(async () => {
+      const result = await api.post('/api/live-classes', { classId: liveClass, title: liveTitle.trim(), meetingUrl: meetingUrl.trim(), scheduledAt: liveScheduledAt });
+      setLiveSessions(current => [result.data.session, ...current]);
+      setLiveTitle(''); setMeetingUrl(''); setLiveScheduledAt('');
+      setNotice('Live class session created. Students in this classroom can now join.');
     });
   }
 
@@ -626,6 +659,7 @@ function App() {
           ['users', 'User management'],
           ['classes', 'Classrooms'],
           ['assignments', 'Assignments'],
+          ['liveClasses', 'Live Class Session'],
           ['materials', 'Class material'],
           ['community', 'Community chat'],
           ['profile', 'My profile'],
@@ -633,19 +667,20 @@ function App() {
       : role === 'teacher'
         ? [
             ['overview', 'Overview'],
-            ['classes', 'My classrooms'],
-            ['assignments', 'Assignments'],
-            ['attendance', 'Attendance'],
-            ['materials', 'Class material'],
+            ['classes', 'My classrooms'],          ['assignments', 'Assignments'],
+          ['liveClasses', 'Live Class Session'],
+          ['attendance', 'Attendance'],
+          ['materials', 'Class material'],
             ['community', 'Community chat'],
             ['profile', 'My profile'],
           ]
         : [
             ['overview', 'Overview'],
-            ['classes', 'My classrooms'],
-            ['assignments', 'Assignments'],
-            ['attendance', 'Mark attendance'],
-            ['materials', 'Class material'],
+            ['classes', 'My classrooms'],          ['assignments', 'Assignments'],
+          ['liveClasses', 'Live Class Session'],
+          ['myAttendance', 'My Attendance'],
+          ['share', 'Share ClassBridge'],
+          ['materials', 'Class material'],
             ['community', 'Community chat'],
             ['profile', 'My profile'],
           ];
@@ -683,8 +718,10 @@ function App() {
                     ? '♙'
                     : id === 'classes'
                       ? '▤'
-                      : id === 'attendance'
+                      : id === 'attendance' || id === 'myAttendance'
                         ? '✓'
+                        : id === 'liveClasses'
+                          ? '▶'
                         : id === 'community'
                           ? '◉'
                           : id === 'profile'
@@ -726,8 +763,15 @@ function App() {
                 : section === 'users'
                   ? 'User management'
                   : section === 'classes'
-                    ? 'Classrooms'                  : section === 'attendance'
-                    ? 'Attendance'
+                    ? 'Classrooms'
+                    : section === 'liveClasses'
+                      ? 'Live Class Session'
+                      : section === 'myAttendance'
+                        ? 'My Attendance'
+                        : section === 'share'
+                          ? 'Share ClassBridge'
+                          : section === 'attendance'
+                          ? 'Attendance'
                     : section === 'materials'
                       ? 'Class material'
                       : section === 'community'
@@ -989,6 +1033,35 @@ function App() {
               </div>
             </>
           )}
+          {section === 'liveClasses' && role !== 'pending' && (
+            <section>
+              <div className="section-heading"><div><h2>Live Class Session</h2><p>Join a class online through the Google Meet link shared by your teacher.</p></div></div>
+              {(role === 'teacher' || role === 'admin') && <form className="form-card inline-form" onSubmit={createLiveClass}>
+                <h3><Video size={19} /> Create a live class</h3>
+                <input required value={liveTitle} onChange={e => setLiveTitle(e.target.value)} placeholder="Session title, e.g. Biology lesson" />
+                <select required value={liveClass} onChange={e => setLiveClass(e.target.value)}><option value="">Choose classroom</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                <input required type="url" value={meetingUrl} onChange={e => setMeetingUrl(e.target.value)} placeholder="Paste Google Meet link (https://meet.google.com/...)" />
+                <label>Session date and time</label><input type="datetime-local" value={liveScheduledAt} onChange={e => setLiveScheduledAt(e.target.value)} />
+                <button className="primary-btn" disabled={busy || !liveClass}>Publish live session</button>
+              </form>}
+              <div className="assignment-list">{liveSessions.map(session => <article className="assignment-card" key={session.id}>
+                <div className="assignment-icon"><Video /></div><div><h3>{session.title}</h3><p>{classes.find(c => c.id === session.classId)?.name || 'Classroom'} · {session.teacherName}</p><small>{session.scheduledAt ? new Date(session.scheduledAt).toLocaleString() : 'Time not specified'}</small></div>
+                <a className="primary-btn material-download" href={session.meetingUrl} target="_blank" rel="noreferrer">Join meeting <ExternalLink size={15} /></a>
+              </article>)}{liveSessions.length === 0 && <div className="empty-state">No live class sessions have been posted yet.</div>}</div>
+            </section>
+          )}
+          {section === 'myAttendance' && role === 'student' && (
+            <section>
+              <div className="section-heading"><div><h2>My Attendance</h2><p>Mark yourself present and track the classes you have attended or missed.</p></div></div>
+              <form className="form-card attendance-form" onSubmit={markAttendance}><KeyRound size={28} /><h3>Mark yourself present</h3><input required placeholder="Attendance code" value={attendanceCode} onChange={e => setAttendanceCode(e.target.value)} /><button className="primary-btn" disabled={busy}>Mark present</button></form>
+              <div className="stats-grid">{[
+                { label: 'CLASSES ATTENDED', value: attendanceSummary.reduce((sum, item) => sum + item.attended, 0), hint: 'Your recorded attendance' },
+                { label: 'CLASSES MISSED', value: attendanceSummary.reduce((sum, item) => sum + item.missed, 0), hint: 'Sessions without a check-in' },
+                { label: 'TOTAL CLASSES', value: attendanceSummary.reduce((sum, item) => sum + item.total, 0), hint: 'All sessions for your classes' },
+              ].map(item => <div className="stat-card" key={item.label}><span>{item.label}</span><b>{item.value}</b><small>{item.hint}</small><ClipboardCheck /></div>)}</div>
+              <div className="assignment-list">{attendanceSummary.map(item => <article className="assignment-card" key={item.classId}><div className="assignment-icon"><CalendarDays /></div><div><h3>{item.className}</h3><p>{item.attended} attended · {item.missed} missed</p><small>{item.total} attendance sessions</small></div></article>)}{attendanceSummary.length === 0 && <div className="empty-state">Your attendance summary will appear after your teachers create attendance sessions.</div>}</div>
+            </section>
+          )}
           {section === 'attendance' && role !== 'pending' && (
             <>
               <div className="section-heading">
@@ -1054,6 +1127,28 @@ function App() {
                 </div>
               )}
             </>
+          )}
+          {section === 'share' && role === 'student' && (
+            <section>
+              <div className="section-heading"><div><h2>Share ClassBridge</h2><p>Help classmates discover the learning platform by sharing its link.</p></div></div>
+              <div className="quick-grid">
+                <article className="form-card">
+                  <Share2 size={28} />
+                  <h3>Share the website</h3>
+                  <p>Send classmates the ClassBridge website so they can open it in their browser.</p>
+                  <button className="primary-btn" onClick={async () => { const url = window.location.origin; if (navigator.share) { try { await navigator.share({ title: 'ClassBridge', text: 'Join me on ClassBridge for school learning.', url }); } catch {} } else { await navigator.clipboard.writeText(url); setNotice('ClassBridge website link copied.'); } }}>Share website link</button>
+                  <button className="text-btn" onClick={async () => { await navigator.clipboard.writeText(window.location.origin); setNotice('ClassBridge website link copied.'); }}><Copy size={15} /> Copy website link</button>
+                </article>
+                <article className="form-card">
+                  <Link2 size={28} />
+                  <h3>Share the app link</h3>
+                  <p>Share this link to open ClassBridge. On supported phones, classmates can use their browser menu to add it to the home screen.</p>
+                  <button className="primary-btn" onClick={async () => { const url = window.location.origin; if (navigator.share) { try { await navigator.share({ title: 'ClassBridge app', text: 'Open ClassBridge on your phone.', url }); } catch {} } else { await navigator.clipboard.writeText(url); setNotice('ClassBridge app link copied.'); } }}>Share app link</button>
+                  <button className="text-btn" onClick={async () => { await navigator.clipboard.writeText(window.location.origin); setNotice('ClassBridge app link copied.'); }}><Copy size={15} /> Copy app link</button>
+                  <small>A separate APK download will be added when an Android app package is available.</small>
+                </article>
+              </div>
+            </section>
           )}
           {section === 'profile' && role !== 'pending' && (
             <section className="profile-layout">
