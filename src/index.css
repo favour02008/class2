@@ -1109,3 +1109,20 @@ footer {
     padding: 25px 18px;
   }
 }
+
+.offline-ribbon {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 14px;
+  text-align: center;
+  color: #fff;
+  background: #8b5b16;
+  font-size: 12px;
+  font-weight: 700;
+}
+@media (display-mode: standalone) {
+  body { overscroll-behavior-y: contain; }
+}
