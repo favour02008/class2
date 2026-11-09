@@ -1,0 +1,88 @@
+[
+  {
+    "name": "Administrator access remains secure",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "Google authentication",
+      "administrator role",
+      "protected user management"
+    ],
+    "description": "Confirms the configured owner can access administration.",
+    "steps": [
+      "Sign in as the configured administrator",
+      "Open User management"
+    ],
+    "expected": "Administrator tools are available."
+  },
+  {
+    "name": "Student profile and picture persist",
+    "viewport": "mobile",
+    "covers": [
+      "profile editing",
+      "profile picture upload",
+      "avatar persistence"
+    ],
+    "description": "Checks that a student can update their display name and photo.",
+    "steps": [
+      "Sign in as an approved student",
+      "Open My profile",
+      "Change name and upload an image",
+      "Save and refresh"
+    ],
+    "expected": "The updated name and picture remain visible."
+  },
+  {
+    "name": "Community chat sends live messages",
+    "viewport": "mobile",
+    "covers": [
+      "community chat",
+      "message persistence",
+      "live updates",
+      "sender name and role"
+    ],
+    "description": "Checks that approved members can exchange messages.",
+    "steps": [
+      "Sign in as an approved student",
+      "Open Community chat",
+      "Send a message",
+      "Open the chat as another approved member"
+    ],
+    "expected": "The message appears with the sender's name and role."
+  },
+  {
+    "name": "Teacher uploads class materials",
+    "viewport": "desktop",
+    "covers": [
+      "material upload",
+      "storage",
+      "classroom access filtering",
+      "student file access"
+    ],
+    "description": "Checks classroom-specific material sharing.",
+    "steps": [
+      "Sign in as an approved teacher",
+      "Select a classroom",
+      "Upload a supported PDF",
+      "Open Class material as an enrolled student"
+    ],
+    "expected": "The file is listed and can be opened by enrolled students."
+  },
+  {
+    "name": "Existing classroom workflows remain available",
+    "viewport": "desktop",
+    "covers": [
+      "classroom creation",
+      "assignment publishing",
+      "attendance sessions",
+      "attendance marking"
+    ],
+    "description": "Protects existing learning workflows.",
+    "steps": [
+      "Create a classroom",
+      "Publish an assignment",
+      "Start an attendance session"
+    ],
+    "expected": "Existing classroom, assignment and attendance features continue to work."
+  }
+]
