@@ -4,12 +4,14 @@
     "sanity": true,
     "viewport": "desktop",
     "covers": [
+      "branded opening splash screen",
       "Google authentication",
       "administrator role",
       "protected user management"
     ],
-    "description": "Confirms the configured owner can access administration.",
+    "description": "Confirms the ClassBridge opening screen is branded and the configured owner can access administration.",
     "steps": [
+      "Open ClassBridge and confirm the splash screen displays Built by Favour",
       "Sign in as the configured administrator",
       "Open User management"
     ],
