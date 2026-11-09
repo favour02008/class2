@@ -1,0 +1,9 @@
+{
+  "appId": "com.classbridge.app",
+  "appName": "ClassBridge",
+  "webDir": "www",
+  "server": {
+    "url": "https://classbridge-vfh1cz.v2.appdeploy.ai",
+    "cleartext": false
+  }
+}
