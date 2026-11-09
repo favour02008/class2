@@ -53,6 +53,30 @@ type Attendance = {
 };
 type ChatMessage = { id: string; text: string; authorName: string; authorRole: string; avatarUrl?: string; createdAt: string; userId: string };
 type Material = { id: string; title: string; fileName: string; contentType: string; classId: string; className: string; uploaderName: string; createdAt: string; url: string };
+type OfflineWrite = { id: string; method: 'post' | 'put'; url: string; body: any; createdAt: number };
+const OFFLINE_QUEUE_KEY = 'classbridge:pending-writes';
+
+function queueOfflineWrite(method: OfflineWrite['method'], url: string, body: any) {
+  const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]') as OfflineWrite[];
+  queue.push({ id: String(Date.now()) + '-' + Math.random().toString(36).slice(2), method, url, body, createdAt: Date.now() });
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+}
+
+async function syncOfflineWrites() {
+  if (!navigator.onLine) return;
+  const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]') as OfflineWrite[];
+  const remaining: OfflineWrite[] = [];
+  for (const item of queue) {
+    try {
+      if (item.method === 'post') await api.post(item.url, item.body);
+      else await api.put(item.url, item.body);
+    } catch {
+      remaining.push(item);
+    }
+  }
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+}
+
 
 const roles = [
   {
@@ -220,6 +244,22 @@ function App() {
 
   useEffect(() => {
     if (!user) return;
+    const syncWhenOnline = async () => {
+      const before = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]').length;
+      await syncOfflineWrites();
+      const after = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]').length;
+      if (before > after) {
+        setNotice('Your saved offline changes have been synchronised.');
+        await loadData();
+      }
+    };
+    window.addEventListener('online', syncWhenOnline);
+    if (navigator.onLine) syncWhenOnline();
+    return () => window.removeEventListener('online', syncWhenOnline);
+  }, [user?.userId]);
+
+  useEffect(() => {
+    if (!user) return;
     const connection = ws.connect();
     socketRef.current = connection;
     connection.onMessage(message => {
@@ -291,40 +331,58 @@ function App() {
   async function createClass(e: React.FormEvent) {
     e.preventDefault();
     await action(async () => {
-      await api.post('/api/classes', { name: className, subject });
+      if (!navigator.onLine) {
+        queueOfflineWrite('post', '/api/classes', { name: className, subject });
+        const pendingClass: Classroom = { id: 'offline-' + Date.now(), name: className, subject, code: 'Pending sync', teacherId: user?.userId || '' };
+        setClasses(current => [...current, pendingClass]);
+        const cached = JSON.parse(localStorage.getItem('classbridge:dashboard') || '{}');
+        localStorage.setItem('classbridge:dashboard', JSON.stringify({ ...cached, classes: [...(cached.classes || []), pendingClass] }));
+        setNotice('Class saved on this device. It will sync when you reconnect.');
+      } else {
+        await api.post('/api/classes', { name: className, subject });
+        setNotice('Your classroom has been created.');
+        await loadData();
+      }
       setClassName('');
       setSubject('');
-      setNotice('Your classroom has been created.');
-      await loadData();
     });
   }
 
   async function joinClass(e: React.FormEvent) {
     e.preventDefault();
     await action(async () => {
-      await api.post('/api/classes/join', {
-        code: joinCode.trim().toUpperCase(),
-      });
+      const body = { code: joinCode.trim().toUpperCase() };
+      if (!navigator.onLine) {
+        queueOfflineWrite('post', '/api/classes/join', body);
+        setNotice('Your join request is saved and will sync when you reconnect.');
+      } else {
+        await api.post('/api/classes/join', body);
+        setNotice('You joined the classroom.');
+        await loadData();
+      }
       setJoinCode('');
-      setNotice('You joined the classroom.');
-      await loadData();
     });
   }
 
   async function createAssignment(e: React.FormEvent) {
     e.preventDefault();
     await action(async () => {
-      await api.post('/api/assignments', {
-        title: assignmentTitle,
-        description: assignmentDesc,
-        classId: assignmentClass,
-        dueDate,
-      });
+      const body = { title: assignmentTitle, description: assignmentDesc, classId: assignmentClass, dueDate };
+      if (!navigator.onLine) {
+        queueOfflineWrite('post', '/api/assignments', body);
+        const pendingAssignment: Assignment = { id: 'offline-' + Date.now(), ...body, teacherId: user?.userId || '' };
+        setAssignments(current => [...current, pendingAssignment]);
+        const cached = JSON.parse(localStorage.getItem('classbridge:dashboard') || '{}');
+        localStorage.setItem('classbridge:dashboard', JSON.stringify({ ...cached, assignments: [...(cached.assignments || []), pendingAssignment] }));
+        setNotice('Assignment saved on this device. It will publish when you reconnect.');
+      } else {
+        await api.post('/api/assignments', body);
+        setNotice('Assignment published.');
+        await loadData();
+      }
       setAssignmentTitle('');
       setAssignmentDesc('');
       setDueDate('');
-      setNotice('Assignment published.');
-      await loadData();
     });
   }
 
@@ -373,10 +431,21 @@ function App() {
         avatarBase64 = dataUrl.split(',')[1];
         avatarContentType = profileFile.type;
       }
-      const result = await api.put('/api/profile', { name: profileName.trim(), avatarBase64, avatarContentType });
-      setProfile(result.data.profile);
+      const body = { name: profileName.trim(), avatarBase64, avatarContentType };
+      if (!navigator.onLine) {
+        if (avatarBase64) throw new Error('Profile photo changes need an internet connection. You can save your name offline.');
+        queueOfflineWrite('put', '/api/profile', body);
+        const updatedProfile = { ...profile!, name: profileName.trim() };
+        setProfile(updatedProfile);
+        localStorage.setItem('classbridge:profile', JSON.stringify(updatedProfile));
+        setNotice('Profile name saved on this device. It will sync when you reconnect.');
+      } else {
+        const result = await api.put('/api/profile', body);
+        setProfile(result.data.profile);
+        localStorage.setItem('classbridge:profile', JSON.stringify(result.data.profile));
+        setNotice('Your profile has been updated.');
+      }
       setProfileFile(null);
-      setNotice('Your profile has been updated.');
     });
   }
 
@@ -384,8 +453,16 @@ function App() {
     e.preventDefault();
     if (!chatText.trim()) return;
     await action(async () => {
-      const result = await api.post('/api/community/messages', { text: chatText.trim() });
-      setChatMessages(current => current.some(item => item.id === result.data.message.id) ? current : [...current, result.data.message].slice(-100));
+      if (!navigator.onLine) {
+        const body = { text: chatText.trim() };
+        queueOfflineWrite('post', '/api/community/messages', body);
+        const pendingMessage: ChatMessage = { id: 'offline-' + Date.now(), text: body.text, authorName: profile?.name || 'You', authorRole: profile?.role || 'student', createdAt: new Date().toISOString(), userId: user?.userId || '' };
+        setChatMessages(current => [...current, pendingMessage].slice(-100));
+        setNotice('Message saved. It will send when you reconnect.');
+      } else {
+        const result = await api.post('/api/community/messages', { text: chatText.trim() });
+        setChatMessages(current => current.some(item => item.id === result.data.message.id) ? current : [...current, result.data.message].slice(-100));
+      }
       setChatText('');
     });
   }
@@ -412,9 +489,15 @@ function App() {
 
   async function updateRole(userId: string, role: string) {
     await action(async () => {
-      await api.put('/api/admin/users/' + encodeURIComponent(userId), { role });
-      setNotice('User role updated.');
-      await loadData();
+      const url = '/api/admin/users/' + encodeURIComponent(userId);
+      if (!navigator.onLine) {
+        queueOfflineWrite('put', url, { role });
+        setNotice('Role change saved and will sync when you reconnect.');
+      } else {
+        await api.put(url, { role });
+        setNotice('User role updated.');
+        await loadData();
+      }
     });
   }
 
