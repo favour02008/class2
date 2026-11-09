@@ -363,10 +363,22 @@ function App() {
 
   if (loading)
     return (
-      <div className="loading">
-        <div className="loader" />
-        <p>Opening your classroom…</p>
-      </div>
+      <main className="brand-splash" aria-label="ClassBridge opening screen">
+        <div className="splash-glow" />
+        <div className="splash-content">
+          <div className="splash-mark">
+            <BookOpen size={42} strokeWidth={1.8} />
+          </div>
+          <h1>
+            Class<span>Bridge</span>
+          </h1>
+          <p className="splash-tagline">Learn. Connect. Achieve.</p>
+          <div className="splash-loader" aria-hidden="true">
+            <span />
+          </div>
+          <small>Built by Favour</small>
+        </div>
+      </main>
     );
 
   if (!user)
