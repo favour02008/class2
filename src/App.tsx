@@ -660,6 +660,7 @@ function App() {
           ['classes', 'Classrooms'],
           ['assignments', 'Assignments'],
           ['liveClasses', 'Live Class Session'],
+          ['share', 'Share ClassBridge'],
           ['materials', 'Class material'],
           ['community', 'Community chat'],
           ['profile', 'My profile'],
@@ -670,6 +671,7 @@ function App() {
             ['classes', 'My classrooms'],          ['assignments', 'Assignments'],
           ['liveClasses', 'Live Class Session'],
           ['attendance', 'Attendance'],
+          ['share', 'Share ClassBridge'],
           ['materials', 'Class material'],
             ['community', 'Community chat'],
             ['profile', 'My profile'],
@@ -1128,7 +1130,7 @@ function App() {
               )}
             </>
           )}
-          {section === 'share' && role === 'student' && (
+          {section === 'share' && role !== 'pending' && (
             <section>
               <div className="section-heading"><div><h2>Share ClassBridge</h2><p>Help classmates discover the learning platform by sharing its link.</p></div></div>
               <div className="quick-grid">
