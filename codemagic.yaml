@@ -16,31 +16,13 @@ workflows:
         script: |
           npx cap add android
           npx cap sync android
-      - name: Build debug APK
+      - name: Build debug APK using preinstalled Gradle
         script: |
           set -e
           cd android
-          # Use the smaller Gradle distribution to reduce download time.
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("gradle/wrapper/gradle-wrapper.properties")
-          s = p.read_text()
-          s = s.replace("services.gradle.org/distributions/", "downloads.gradle.org/distributions/")
-          s = s.replace("-all.zip", "-bin.zip")
-          p.write_text(s)
-          print("Gradle distribution:", [x for x in s.splitlines() if x.startswith("distributionUrl=")][0])
-          PY
-          # Retry transient upstream download failures (e.g. HTTP 504).
-          for attempt in 1 2 3; do
-            echo "Gradle build attempt $attempt of 3"
-            if ./gradlew --no-daemon assembleDebug; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              sleep 20
-            fi
-          done
-          echo "Gradle build failed after 3 attempts."
-          exit 1
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "Using the Gradle version already installed on the Codemagic machine:"
+          gradle --version
+          gradle --no-daemon assembleDebug
     artifacts:
       - android/app/build/outputs/apk/debug/*.apk
