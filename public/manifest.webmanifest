@@ -1,0 +1,19 @@
+{
+  "name": "ClassBridge",
+  "short_name": "ClassBridge",
+  "description": "Your digital classroom, online and offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101a36",
+  "theme_color": "#172b55",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
