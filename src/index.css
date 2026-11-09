@@ -13,6 +13,100 @@ body {
   margin: 0;
   min-width: 320px;
 }
+.brand-splash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff;
+  background: linear-gradient(145deg, #101a36 0%, #1d3264 52%, #3153a0 100%);
+}
+.splash-glow {
+  position: absolute;
+  z-index: -1;
+  width: min(82vw, 520px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #6f8cff;
+  opacity: 0.16;
+  filter: blur(75px);
+  animation: splash-pulse 2.4s ease-in-out infinite alternate;
+}
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px;
+  animation: splash-rise 650ms ease-out both;
+}
+.splash-mark {
+  width: 94px;
+  height: 94px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #7896ff, #4268dc);
+  border: 1px solid #ffffff50;
+  box-shadow: 0 18px 55px #07122d80, inset 0 1px 0 #ffffff55;
+}
+.splash-content h1 {
+  margin: 24px 0 5px;
+  font: 800 clamp(34px, 8vw, 46px)/1.1 Manrope, sans-serif;
+  letter-spacing: -1.8px;
+  color: #fff;
+}
+.splash-content h1 span {
+  color: #a9bdff;
+}
+.splash-tagline {
+  margin: 8px 0 26px;
+  color: #d2dcff;
+  font-size: 13px;
+  letter-spacing: 1.4px;
+}
+.splash-loader {
+  width: 42px;
+  height: 3px;
+  margin-bottom: 25px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #ffffff35;
+}
+.splash-loader span {
+  display: block;
+  width: 45%;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  animation: splash-progress 1.15s ease-in-out infinite;
+}
+.splash-content small {
+  color: #d7e0ff;
+  font-size: 12px;
+  letter-spacing: 1.1px;
+}
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes splash-pulse {
+  from { transform: scale(0.88); opacity: 0.12; }
+  to { transform: scale(1.08); opacity: 0.22; }
+}
+@keyframes splash-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(240%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-content, .splash-glow, .splash-loader span {
+    animation: none;
+  }
+}
 button,
 input,
 textarea,
